@@ -1,0 +1,51 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  ci-validation:
+    name: CI - Validation & Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test Backend
+        working-directory: backend
+        run: |
+          npm install
+          node --check src/server.js
+          node --check src/config/db.js
+          node --check src/controllers/productController.js
+          node --check src/routes/health.js
+          node --check src/routes/productRoutes.js
+          npm test --if-present
+
+      - name: Test Frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+  cd-trigger-backend:
+    name: CD - Trigger Render Deployment
+    needs: ci-validation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          echo "Dispatching Render backend deployment..."
+          curl -s -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "Render deployment dispatch confirmed."
