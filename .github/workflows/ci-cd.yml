@@ -1,0 +1,60 @@
+name: E-Commerce CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci-test-and-build:
+    name: Continuous Integration (Lint, Syntax & Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install & Validate Backend
+        run: |
+          cd backend
+          npm ci
+          node --check src/server.js
+          node --check src/config/db.js
+          node --check src/controllers/productController.js
+
+      - name: Install & Build Frontend
+        env:
+          VITE_API_URL: https://ecommerce-backend-5ts8.onrender.com
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+  cd-deploy-backend:
+    name: Continuous Deployment (Render Backend)
+    needs: ci-test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render Deployment via Webhook
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$DEPLOY_HOOK" ]; then
+            echo "Triggering Render backend deployment..."
+            curl -f -X POST "$DEPLOY_HOOK"
+            echo "Render deploy hook triggered successfully!"
+          else
+            echo "RENDER_DEPLOY_HOOK not set in secrets, skipping manual webhook trigger."
+          fi
