@@ -1,3 +1,4 @@
+import './index.css';
 import React, { useState, useEffect, useMemo } from 'react';
 
 const CATEGORIES = ['All', 'Electronics', 'Footwear', 'Fashion', 'Fitness'];
@@ -255,3 +256,4 @@ function App() {
 }
 
 export default App;
+
